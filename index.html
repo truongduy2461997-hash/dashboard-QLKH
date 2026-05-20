@@ -24,7 +24,11 @@
   .header-icon{width:48px;height:48px;background:rgba(255,255,255,.18);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
   .header h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
   .header p{font-size:12px;opacity:.75;margin-top:2px}
-  .header-date{font-size:12px;opacity:.7;text-align:right}
+  .header-date{font-size:12px;opacity:.95;text-align:right;line-height:1.45}
+  .header-date .now{font-weight:700;color:#fff}
+  .header-date .uploaded{opacity:.9}
+  .header-date .file{opacity:.75;font-size:11px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-left:auto}
+  @media(max-width:600px){.header{align-items:flex-start}.header-date{width:100%;text-align:left;background:rgba(255,255,255,.12);border-radius:10px;padding:.65rem .75rem}.header-date .file{margin-left:0;max-width:100%}}
 
   /* UPLOAD */
   .upload-card{background:var(--bg);border-radius:12px;border:2px dashed var(--border);padding:2.5rem 2rem;text-align:center;cursor:pointer;transition:all .15s;margin-bottom:1rem}
@@ -549,8 +553,37 @@ let customerOverviewData = [];
 let depositData = [];
 let selectedCBTD = '';
 let sortCol = 'von_asc';
+const UPLOAD_META_KEY = 'qldn_last_upload_meta_v1';
+function pad2(n){ return String(n).padStart(2,'0'); }
+function formatDateTimeVI(value){
+  const d = value ? new Date(value) : null;
+  if(!d || isNaN(d)) return '';
+  return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function formatDateVI(value){
+  const d = value ? new Date(value) : new Date();
+  if(!d || isNaN(d)) return '';
+  return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
+}
+function getLastUploadMeta(){
+  try{ return JSON.parse(localStorage.getItem(UPLOAD_META_KEY) || 'null') || null; }catch(e){ return null; }
+}
+function setLastUploadMeta(fileName){
+  const meta = { uploadedAt:new Date().toISOString(), fileName:fileName || '' };
+  try{ localStorage.setItem(UPLOAD_META_KEY, JSON.stringify(meta)); }catch(e){ console.warn(e); }
+  updateHeaderDates();
+}
+function updateHeaderDates(){
+  const el = document.getElementById('today-label');
+  if(!el) return;
+  const meta = getLastUploadMeta();
+  const uploadText = meta && meta.uploadedAt ? formatDateTimeVI(meta.uploadedAt) : 'Chưa upload dữ liệu';
+  const fileText = meta && meta.fileName ? `<div class="file" title="${escHeader(meta.fileName)}">File: ${escHeader(meta.fileName)}</div>` : '';
+  el.innerHTML = `<div class="now">📅 Ngày hiện tại: ${formatDateVI(new Date())}</div><div class="uploaded">⬆️ Dữ liệu mới nhất: ${uploadText}</div>${fileText}`;
+}
+function escHeader(v){ return String(v??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 const today = new Date(); today.setHours(0,0,0,0);
-document.getElementById('today-label').innerHTML = 'Ngày: ' + today.toLocaleDateString('vi-VN') + '<br>Cập nhật từ core banking';
+updateHeaderDates();
 const defaultMonth = today.toISOString().slice(0,7);
 const renewMonthInput = document.getElementById('renewMonth');
 if(renewMonthInput) renewMonthInput.value = defaultMonth;
@@ -2143,6 +2176,7 @@ function handleFile(input){
       const wb = XLSX.read(e.target.result, {type:'array', cellDates:false});
       const result = loadCombinedWorkbook(wb);
       if(result.loan || result.customer || result.deposit || result.renewal){
+        setLastUploadMeta(f.name);
         showDashboard('customer');
         alert(`Đã đọc file Excel tổng hợp.\n- Tổng quan KH: ${result.customer}\n- Tiền vay: ${result.loan}\n- Tiền gửi: ${result.deposit}\n- Hạn mức/tái cấp: ${result.renewal}`);
         return;
