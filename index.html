@@ -90,6 +90,10 @@
   .badge-gray{background:var(--gray-light);color:var(--gray)}
   .row-over td{background:#fff0f0}
   .row-soon td{background:#fffbf0}
+  .row-paid-today td{background:#eef8ea!important;color:#3B6D11}
+  .pay-check{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-size:11px;color:var(--green);font-weight:600}
+  .pay-check input{width:16px;height:16px;accent-color:var(--green)}
+  .paid-badge{display:inline-block;padding:2px 7px;border-radius:100px;background:var(--green-light);color:var(--green);font-size:10.5px;font-weight:700}
   .footer-info{font-size:11.5px;color:var(--text2);padding:.3rem 0}
 
   /* TABS */
@@ -173,10 +177,10 @@
     input[type=text],select,input[type=month]{width:100%;height:42px;border-radius:11px;font-size:16px;padding:8px 11px;background:#fff}
     .footer-info,.hint,.subtle-note{font-size:11.5px;line-height:1.4;padding:.25rem .15rem}
     .table-wrap{border-radius:14px;overflow:auto;max-width:100%;box-shadow:inset -10px 0 10px -12px rgba(0,0,0,.25)}
-    table{font-size:12px;min-width:980px}
+    table{font-size:12px;min-width:1060px}
     #cust-table-wrap table{min-width:860px}
     #deposit-table-wrap table{min-width:1160px}
-    #due7-table-wrap table{min-width:1080px}
+    #due7-table-wrap table{min-width:1160px}
     #renew-table-wrap table{min-width:1100px}
     th,td{white-space:nowrap}
     thead th{font-size:10.5px;padding:8px}
@@ -314,6 +318,7 @@
             <th style="text-align:right">Lãi QH</th>
             <th>Còn (ngày vốn)</th>
             <th>CBTD</th>
+            <th>Đã TT</th>
             <th>Trạng thái</th>
           </tr>
         </thead>
@@ -363,6 +368,7 @@
             <th>Ngày trả lãi</th>
             <th style="text-align:right">Lãi cần thu</th>
             <th>Còn ngày</th>
+            <th>Đã TT</th>
             <th>Ghi chú</th>
           </tr>
         </thead>
@@ -971,7 +977,7 @@ function applyFilters(){
   const fCBTD = document.getElementById('fCBTD').value;
   const sort = document.getElementById('sortKey').value;
 
-  let rows = principalDueListBase();
+  let rows = principalDueListBase().filter(r => !shouldHidePaidStatus(paymentStatusKey('principal', r, r.vonDate)));
   if(search) rows = rows.filter(r => `${r.maKH} ${r.name} ${r.contract} ${r.cbtd}`.toLowerCase().includes(search));
   if(fType) rows = rows.filter(r => r.loai.toLowerCase().includes(fType));
   if(fCBTD) rows = rows.filter(r => r.cbtd === fCBTD);
@@ -999,7 +1005,7 @@ function render(){
   saveUIState();
   const tbody = document.getElementById('tbody');
   if(!rows.length){
-    tbody.innerHTML = `<tr><td colspan="15" style="text-align:center;padding:2rem;color:#888">Không có kết quả</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="16" style="text-align:center;padding:2rem;color:#888">Không có kết quả</td></tr>`;
     document.getElementById('footer-info').textContent = '0 hồ sơ';
     return;
   }
@@ -1007,8 +1013,15 @@ function render(){
     const dv = daysDiff(r.vonDate);
     const st = statusOf(dv);
     const dvLabel = dv===null ? '—' : (dv<0?`<span style="color:var(--red)">-${Math.abs(dv)}d</span>`:`${dv}d`);
+    const payKey = paymentStatusKey('principal', r, r.vonDate);
+    const paid = getPaidStatus(payKey);
+    const canMarkPaid = dv!==null && dv>=0 && dv<=7;
+    const paidClass = paid ? ' row-paid-today' : '';
+    const payCell = canMarkPaid || paid
+      ? `<label class="pay-check" title="Tích khi khách đã thanh toán. Dòng đã tích hôm nay sẽ tự ẩn từ ngày hôm sau."><input type="checkbox" ${paid?'checked':''} onchange="togglePaidStatus('${escAttr(payKey)}', this.checked)"><span>${paid?'Đã TT':'TT'}</span></label>`
+      : '—';
     const hasQH = r.vonQH>0||r.laiQH>0;
-    return `<tr class="${st.row}">
+    return `<tr class="${st.row}${paidClass}">
       <td class="center" style="color:var(--text2)">${i+1}</td>
       <td class="mono">${r.maKH || '—'}</td>
       <td style="font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.name}">${r.name}</td>
@@ -1023,11 +1036,14 @@ function render(){
       <td class="num" style="color:${r.laiQH?'var(--red)':'var(--text2)'}">${r.laiQH?fmtVND(r.laiQH):'—'}</td>
       <td class="center">${dvLabel}</td>
       <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)" title="${r.cbtd}">${r.cbtd.split(' ').slice(0,2).join(' ')}</td>
-      <td><span class="badge ${st.cls}">${st.lbl}</span></td>
+      <td class="center">${payCell}</td>
+      <td>${paid ? '<span class="paid-badge">Đã thanh toán hôm nay</span>' : `<span class="badge ${st.cls}">${st.lbl}</span>`}</td>
     </tr>`;
   }).join('');
   const totalDuNo = rows.reduce((s,r)=>s+r.duNo,0);
-  document.getElementById('footer-info').textContent = `Hiển thị ${rows.length}/${principalDueListBase().length} hồ sơ ngắn hạn · Tổng dư nợ lọc: ${fmtVND(totalDuNo)}`;
+  const paidToday = rows.filter(r=>getPaidStatus(paymentStatusKey('principal', r, r.vonDate))).length;
+  const paidNote = paidToday ? ` · Đã tích thanh toán hôm nay: ${paidToday} dòng (sẽ tự ẩn từ ngày hôm sau)` : '';
+  document.getElementById('footer-info').textContent = `Hiển thị ${rows.length}/${principalDueListBase().length} hồ sơ ngắn hạn · Tổng dư nợ lọc: ${fmtVND(totalDuNo)}${paidNote}`;
 }
 
 
@@ -1213,7 +1229,7 @@ function applyDue7Filters(){
   const search = (document.getElementById('due7Search')?.value || '').toLowerCase();
   const cbtd = document.getElementById('due7CBTD')?.value || '';
   const sort = document.getElementById('due7Sort')?.value || 'due_asc';
-  let rows = due7RowsBase();
+  let rows = due7RowsBase().filter(x => !shouldHidePaidStatus(paymentStatusKey(duePaymentType(x), x.source, x.dueDate)));
   if(cbtd) rows = rows.filter(x=>x.source.cbtd === cbtd);
   if(search) rows = rows.filter(x=>`${x.source.name} ${x.source.contract} ${x.source.cbtd} ${x.source.maKH}`.toLowerCase().includes(search));
   if(sort==='name_asc') rows.sort((a,b)=>a.source.name.localeCompare(b.source.name,'vi'));
@@ -1252,7 +1268,10 @@ function renderDue7(){
   tbody.innerHTML = rows.map((x,i)=>{
     const r=x.source;
     const dText = x.dueDays===null ? '—' : `${x.dueDays} ngày`;
-    const rowClass = x.dueDays!==null && x.dueDays<=3 ? 'row-soon' : '';
+    const payKey = paymentStatusKey(duePaymentType(x), r, x.dueDate);
+    const paid = getPaidStatus(payKey);
+    const rowClass = (x.dueDays!==null && x.dueDays<=3 ? 'row-soon' : '') + (paid ? ' row-paid-today' : '');
+    const payCell = `<label class="pay-check" title="Tích khi khách đã thanh toán. Dòng đã tích hôm nay sẽ tự ẩn từ ngày hôm sau."><input type="checkbox" ${paid?'checked':''} onchange="togglePaidStatus('${escAttr(payKey)}', this.checked)"><span>${paid?'Đã TT':'TT'}</span></label>`;
     return `<tr class="${rowClass}">
       <td class="center">${i+1}</td>
       <td style="font-weight:500;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.name}">${r.name}</td>
@@ -1265,17 +1284,20 @@ function renderDue7(){
       <td>${fmtDate(r.laiDate)}</td>
       <td class="num">${x.interestShow?fmtVND(x.interestShow):'—'}</td>
       <td class="center">${dText}</td>
-      <td>${x.note}</td>
+      <td class="center">${payCell}</td>
+      <td>${paid ? '<span class="paid-badge">Đã thanh toán hôm nay</span> · ' : ''}${x.note}</td>
     </tr>`;
   }).join('');
-  footer.textContent = `Hiển thị ${rows.length} hồ sơ · Quy tắc KD: lãi ≤7 ngày & vốn >15 ngày; TD: vốn ≤15 ngày · Tổng gốc: ${fmtVND(totalPrincipal)} · Tổng lãi: ${fmtVND(totalInterest)}`;
+  const paidToday = rows.filter(x=>getPaidStatus(paymentStatusKey(duePaymentType(x), x.source, x.dueDate))).length;
+  const paidNote = paidToday ? ` · Đã tích thanh toán hôm nay: ${paidToday} dòng (sẽ tự ẩn từ ngày hôm sau)` : '';
+  footer.textContent = `Hiển thị ${rows.length} hồ sơ · Quy tắc KD: lãi ≤7 ngày & vốn >15 ngày; TD: vốn ≤15 ngày · Tổng gốc: ${fmtVND(totalPrincipal)} · Tổng lãi: ${fmtVND(totalInterest)}${paidNote}`;
 }
 function exportDue7Report(){
   const rows = applyDue7Filters();
   if(!rows.length) return alert('Không có hồ sơ đến hạn theo quy tắc để xuất!');
-  csvDownload(`khach_hang_den_han_quy_tac_7_15_ngay_${new Date().toISOString().split('T')[0]}.csv`, ['Mã KH','Tên khách hàng','Số hợp đồng','Nhóm vay','CBTD','Dư nợ','Ngày trả vốn','Gốc cần thu','Ngày trả lãi','Lãi cần thu','Còn ngày','Ghi chú'], rows.map(x=>{
+  csvDownload(`khach_hang_den_han_quy_tac_7_15_ngay_${new Date().toISOString().split('T')[0]}.csv`, ['Mã KH','Tên khách hàng','Số hợp đồng','Nhóm vay','CBTD','Dư nợ','Ngày trả vốn','Gốc cần thu','Ngày trả lãi','Lãi cần thu','Còn ngày','Đã thanh toán','Ghi chú'], rows.map(x=>{
     const r=x.source;
-    return [r.maKH,r.name,r.contract,x.group,r.cbtd,r.duNo,fmtDate(r.vonDate),x.principalShow||'',fmtDate(r.laiDate),x.interestShow||'',x.dueDays??'',x.note];
+    return [r.maKH,r.name,r.contract,x.group,r.cbtd,r.duNo,fmtDate(r.vonDate),x.principalShow||'',fmtDate(r.laiDate),x.interestShow||'',x.dueDays??'',getPaidStatus(paymentStatusKey(duePaymentType(x), r, x.dueDate))?'Đã thanh toán hôm nay':'',x.note];
   }));
 }
 
@@ -1445,7 +1467,8 @@ const STORAGE_KEYS = {
   customer:'qldn_customer_overview_simple_v11',
   loan:'qldn_loan_data_v11',
   deposit:'qldn_deposit_data_v11',
-  ui:'qldn_ui_state_v14'
+  ui:'qldn_ui_state_v14',
+  paid:'qldn_paid_status_v1'
 };
 let currentTab = 'customer';
 let isRestoringUI = false;
@@ -1459,6 +1482,55 @@ function serializeLoanRow(r){ return {...r, loanDate:serializeDate(r.loanDate), 
 function reviveLoanRow(x){ return {...x, loanDate:reviveDate(x.loanDate), maturityDate:reviveDate(x.maturityDate), vonDate:reviveDate(x.vonDate), laiDate:reviveDate(x.laiDate)}; }
 function serializeDepositRow(r){ return {...r, openDate:serializeDate(r.openDate), depositDate:serializeDate(r.depositDate), maturityDate:serializeDate(r.maturityDate)}; }
 function reviveDepositRow(x){ return {...x, openDate:reviveDate(x.openDate), depositDate:reviveDate(x.depositDate), maturityDate:reviveDate(x.maturityDate)}; }
+
+let paidStatusMap = {};
+function loadPaidStatus(){
+  try{ paidStatusMap = JSON.parse(localStorage.getItem(STORAGE_KEYS.paid)||'{}') || {}; }
+  catch(e){ paidStatusMap = {}; console.warn(e); }
+}
+function savePaidStatus(){
+  try{ localStorage.setItem(STORAGE_KEYS.paid, JSON.stringify(paidStatusMap)); }
+  catch(e){ console.warn(e); alert('Không lưu được trạng thái đã thanh toán. Có thể trình duyệt đã đầy bộ nhớ.'); }
+}
+function todayInputKey(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function paymentStatusKey(type, r, dueDate){
+  const dateKey = dateToInput(dueDate) || 'khong-ngay';
+  const ma = normalizeKey(r && r.maKH ? r.maKH : '');
+  const contract = normalizeKey(r && r.contract ? r.contract : '');
+  const name = normalizeKey(r && r.name ? r.name : '');
+  return [type || 'principal', ma || name, contract, dateKey].join('|');
+}
+function duePaymentType(x){
+  return x && x.group === 'KD ngắn hạn' ? 'interest' : 'principal';
+}
+function getPaidStatus(key){
+  const item = paidStatusMap && paidStatusMap[key];
+  if(!item) return null;
+  // Chỉ hiện trạng thái trong đúng ngày đã tích. Qua ngày hôm sau, dòng sẽ tự ẩn bằng shouldHidePaidStatus().
+  return item;
+}
+function shouldHidePaidStatus(key){
+  const item = paidStatusMap && paidStatusMap[key];
+  if(!item || !item.paidDate) return false;
+  return item.paidDate < todayInputKey();
+}
+function togglePaidStatus(key, checked){
+  if(!key) return;
+  if(checked){
+    paidStatusMap[key] = {paidDate:todayInputKey(), paidAt:new Date().toISOString()};
+  }else{
+    delete paidStatusMap[key];
+  }
+  savePaidStatus();
+  renderMetrics();
+  renderAlerts();
+  render();
+  renderDue7();
+}
+
 function saveAllManualData(){ saveAllData(); alert('Đã lưu toàn bộ dữ liệu của 6 sheet trên trình duyệt này.'); }
 function saveAllData(){ saveLoanToStorage(); saveDepositToStorage(); saveRenewalToStorage(); saveCustomerToStorage(); saveUIState(); }
 function saveLoanToStorage(){ try{ localStorage.setItem(STORAGE_KEYS.loan, JSON.stringify(data.map(serializeLoanRow))); }catch(e){ console.warn(e); alert('Không lưu được dữ liệu tiền vay. Có thể trình duyệt đã đầy bộ nhớ.'); } }
@@ -2241,6 +2313,8 @@ function resetApp(){
   document.getElementById('dashboard').style.display='none';
   ['fileIn','loanFileGlobal','limitFileGlobal','customerFileGlobal','depositFileGlobal','limitFileIn','customerFileIn','depositFileIn'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
 }
+
+loadPaidStatus();
 
 // Tự nạp dữ liệu đã lưu khi mở file HTML.
 // Nếu chưa từng lưu dữ liệu trên trình duyệt này thì vẫn hiện màn hình upload như bình thường.
