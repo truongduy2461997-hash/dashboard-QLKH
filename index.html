@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Dashboard quản lý KH – V23 làm lại sạch logic thanh toán</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --blue:#0C447C;--blue2:#185FA5;--blue-light:#E6F1FB;
+    --red:#A32D2D;--red-light:#FCEBEB;
+    --amber:#854F0B;--amber-light:#FAEEDA;
+    --green:#2F6B18;--green-light:#EAF3DE;
+    --gray:#5F5E5A;--gray-light:#F3F1EA;
+    --border:#E0DDD7;--bg:#FFFFFF;--bg2:#F7F5F0;--text:#1A1A18;--text2:#5F5E5A;
+  }
+  body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:#F0EDE6;color:var(--text);font-size:14px}
+  .app{max-width:1400px;margin:0 auto;padding:1.25rem}
+  .header{background:var(--blue);color:#fff;border-radius:14px;padding:1.15rem 1.35rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+  .header-left{display:flex;gap:12px;align-items:center}
+  .header-icon{width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+  .header h1{font-size:18px;font-weight:700}
+  .header p{font-size:12px;opacity:.85;margin-top:2px}
+  .header-date{text-align:right;font-size:12px;line-height:1.45}
+  .header-date b{color:#fff}
+  .upload-card{background:#fff;border:2px dashed var(--border);border-radius:14px;padding:1.5rem;text-align:center;margin-bottom:.8rem;cursor:pointer;transition:.15s}
+  .upload-card:hover,.upload-card.drag{border-color:var(--blue);background:var(--blue-light)}
+  .upload-card .icon{font-size:38px;display:block;margin-bottom:.5rem}
+  .upload-card h3{font-size:16px;margin-bottom:.3rem}
+  .upload-card p{font-size:12.5px;color:var(--text2)}
+  .tabs{display:flex;gap:5px;overflow-x:auto;margin:.8rem 0}
+  .tab{border:.5px solid var(--border);border-bottom:none;background:var(--bg2);color:var(--text2);border-radius:9px 9px 0 0;padding:8px 13px;font-family:inherit;font-size:12.5px;cursor:pointer;white-space:nowrap}
+  .tab.active{background:var(--bg);color:var(--blue);font-weight:700}
+  .toolbar,.box{background:#fff;border:.5px solid var(--border);border-radius:12px;padding:.8rem 1rem;margin-bottom:.75rem}
+  .toolbar{display:flex;align-items:center;justify-content:space-between;gap:.65rem;flex-wrap:wrap}
+  .toolbar-left,.toolbar-right{display:flex;gap:.45rem;flex-wrap:wrap;align-items:center}
+  .btn{padding:7px 13px;border-radius:8px;border:.5px solid var(--border);background:#fff;color:var(--text);font-size:12.5px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:33px}
+  .btn:hover{background:var(--gray-light)}
+  .btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .btn-primary:hover{background:var(--blue2)}
+  .btn-red{background:var(--red);color:#fff;border-color:var(--red)}
+  .btn-green{background:var(--green);color:#fff;border-color:var(--green)}
+  .btn-mini{padding:4px 9px;border-radius:7px;border:.5px solid var(--border);background:#fff;cursor:pointer;font-size:11.5px;color:var(--text);text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+  .btn-mini:hover{background:var(--gray-light)}
+  input[type=text],select,input[type=month]{height:33px;padding:7px 10px;border:.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text);font-family:inherit;font-size:12.5px}
+  input[type=text]{width:230px}
+  .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:.8rem}
+  .metric{background:#fff;border:.5px solid var(--border);border-radius:12px;padding:.85rem .95rem}
+  .metric-lbl{font-size:11px;color:var(--text2);margin-bottom:5px}
+  .metric-val{font-size:20px;font-weight:700}
+  .metric-val.blue{color:var(--blue)}.metric-val.red{color:var(--red)}.metric-val.amber{color:var(--amber)}.metric-val.green{color:var(--green)}
+  .metric-sub{font-size:11px;color:var(--text2);margin-top:2px}
+  .table-wrap{background:#fff;border:.5px solid var(--border);border-radius:12px;overflow:auto;margin-bottom:.45rem}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1120px}
+  thead tr{background:var(--bg2);border-bottom:.5px solid var(--border)}
+  th{padding:9px 10px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--text2);letter-spacing:.03em;white-space:nowrap}
+  td{padding:8px 10px;border-bottom:.5px solid var(--gray-light);vertical-align:middle}
+  tbody tr:hover{background:var(--blue-light)}
+  .mono{font-family:"Courier New",monospace;font-size:11.5px}
+  .num{text-align:right;font-family:"Courier New",monospace}
+  .center{text-align:center}
+  .badge{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap}
+  .badge-red{background:var(--red-light);color:var(--red)}
+  .badge-amber{background:var(--amber-light);color:var(--amber)}
+  .badge-green{background:var(--green-light);color:var(--green)}
+  .badge-blue{background:var(--blue-light);color:var(--blue)}
+  .badge-gray{background:var(--gray-light);color:var(--gray)}
+  .row-over td{background:#FFF0F0}
+  .row-soon td{background:#FFFBF0}
+  .paid-check{width:22px;height:22px;accent-color:var(--green);cursor:pointer}
+  .task-status{min-width:130px}
+  .task-note{min-width:210px;width:100%;height:31px}
+  .footer-info{font-size:11.5px;color:var(--text2);padding:.25rem 0 .6rem;line-height:1.4}
+  .empty-state{background:#fff;border:.5px dashed var(--border);border-radius:12px;padding:1.6rem;text-align:center;color:var(--text2);font-size:13px}
+  .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+  .cbtd-card{background:#fff;border:.5px solid var(--border);border-radius:12px;padding:1rem;cursor:pointer}
+  .cbtd-card:hover{border-color:var(--blue);background:var(--blue-light)}
+  .cbtd-name{font-weight:700;color:var(--blue);margin-bottom:.45rem}
+  .cbtd-row{display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:var(--text2);gap:10px}
+  .cbtd-row span:last-child{color:var(--text);font-weight:700;text-align:right}
+  .edit-input{width:100%;min-width:100px;height:31px;border:.5px solid var(--border);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12.5px}
+  .cust-name-input{min-width:320px}.cust-address-input{min-width:420px}
+  .detail-panel{background:#fff;border:.5px solid var(--border);border-radius:12px;padding:1rem;margin-top:.8rem}
+  .detail-title{font-weight:700;color:var(--blue);font-size:14px;margin-bottom:.25rem}
+  .subtle{font-size:12px;color:var(--text2);line-height:1.45}
+  #today-table table{min-width:1580px}
+  #deposit-table table{min-width:1260px}
+  #due7-table table{min-width:1320px}
+  @media(max-width:900px){.metrics{grid-template-columns:repeat(2,1fr)}.toolbar-left,.toolbar-right{width:100%;display:grid;grid-template-columns:1fr}.btn,input[type=text],select,input[type=month]{width:100%;min-height:42px}.app{padding:.65rem}.header-date{text-align:left;width:100%}.tabs{position:sticky;top:0;z-index:20;background:#F0EDE6;padding:.4rem 0}.tab{border:.5px solid var(--border);border-radius:999px;background:#fff}.tab.active{background:var(--blue);color:#fff}.paid-check{width:28px;height:28px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <input type="file" id="fileIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this)">
+  <div class="header">
+    <div class="header-left">
+      <div class="header-icon">🏦</div>
+      <div>
+        <h1>Dashboard quản lý khách hàng</h1>
+        <p>Sacombank · Bản V23 làm lại sạch logic thanh toán · Upload 1 file tổng hợp tại Tab 1</p>
+      </div>
+    </div>
+    <div class="header-date" id="headerDate"></div>
+  </div>
+
+  <div id="uploadHelp">
+    <div class="upload-card" id="dropzone" onclick="openUpload()">
+      <span class="icon">📂</span>
+      <h3>Tải 1 file Excel tổng hợp</h3>
+      <p>File có thể gồm: Danh sách KH · Kế hoạch thu nợ · Tiền gửi · Hạn mức/tái cấp. Sau khi upload, dữ liệu được lưu trên trình duyệt.</p>
+    </div>
+    <div style="display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;margin-bottom:.8rem">
+      <button class="btn btn-primary" onclick="openUpload()">📊 Tải/đổi file tổng hợp</button>
+      <button class="btn" onclick="openSavedDashboard()">📌 Mở lại dữ liệu đã lưu</button>
+    </div>
+  </div>
+
+  <div id="dashboard" style="display:none">
+    <div class="metrics" id="metrics"></div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="today" onclick="switchTab('today',this)">✅ 1. Việc hôm nay</button>
+      <button class="tab" data-tab="list" onclick="switchTab('list',this)">📋 2. DS đến hạn gốc</button>
+      <button class="tab" data-tab="due7" onclick="switchTab('due7',this)">⏰ 3. Tiền vay 7 ngày</button>
+      <button class="tab" data-tab="summary" onclick="switchTab('summary',this)">👤 4. CBTD</button>
+      <button class="tab" data-tab="deposit" onclick="switchTab('deposit',this)">🏦 5. Tiền gửi</button>
+      <button class="tab" data-tab="customer" onclick="switchTab('customer',this)">🧾 6. Tổng quan KH</button>
+      <button class="tab" data-tab="renewal" onclick="switchTab('renewal',this)">🔁 7. Tái cấp HM</button>
+    </div>
+
+    <section id="tab-today">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button class="btn btn-primary" onclick="openUpload()">📂 Tải/đổi file tổng hợp</button>
+          <button class="btn btn-red" onclick="clearAllData()">🗑 Xóa toàn bộ dữ liệu</button>
+          <button class="btn" onclick="openSavedDashboard()">📌 Mở dữ liệu đã lưu</button>
+          <button class="btn" onclick="saveData(true)">💾 Lưu dữ liệu</button>
+          <button class="btn" onclick="exportTodayTasks()">⬇ Xuất việc hôm nay</button>
+        </div>
+        <div class="toolbar-right">
+          <input type="text" id="todaySearch" placeholder="🔍 Mã KH / Tên KH / HĐ / CBTD" oninput="renderToday()">
+          <select id="todayType" onchange="renderToday()">
+            <option value="">Tất cả vay/gửi</option>
+            <option value="loan">Tiền vay</option>
+            <option value="deposit">Tiền gửi</option>
+          </select>
+          <select id="todayCBTD" onchange="renderToday()"><option value="">Tất cả CBTD/phụ trách</option></select>
+          <select id="todayStatus" onchange="renderToday()">
+            <option value="pending">Chưa hoàn tất</option>
+            <option value="Chưa xử lý">Chưa xử lý</option>
+            <option value="Đã gọi">Đã gọi</option>
+            <option value="Hứa trả">Hứa trả</option>
+            <option value="Đã thanh toán">Đã thanh toán</option>
+            <option value="all">Tất cả trạng thái</option>
+          </select>
+          <select id="todaySort" onchange="renderToday()">
+            <option value="due_asc">Quá hạn/đến hạn trước</option>
+            <option value="amount_desc">Số tiền lớn trước</option>
+            <option value="name_asc">Tên KH A→Z</option>
+          </select>
+        </div>
+      </div>
+      <div class="box subtle">Tab 1 gom theo <b>khách hàng + ngày đến hạn</b>. Nếu cùng một khách có nhiều hợp đồng cùng ngày, hệ thống tự cộng toàn bộ gốc và lãi vào một dòng và một mẫu tin nhắn. Tích “Đã TT/XL” là dòng tự ẩn khỏi danh sách chưa hoàn tất.</div>
+      <div class="metrics" id="todayMetrics"></div>
+      <div id="todayEmpty" class="empty-state" style="display:none"></div>
+      <div id="today-table" class="table-wrap" style="display:none">
+        <table>
+          <thead><tr><th>#</th><th>Đã TT/XL</th><th>Loại</th><th>Mã KH</th><th>Khách hàng</th><th>SĐT</th><th>Gọi</th><th>Copy tin</th><th>Số HĐ/TK</th><th>CBTD/Phụ trách</th><th>Ngày đến hạn</th><th>Còn/quá hạn</th><th style="text-align:right">Gốc đến hạn</th><th style="text-align:right">Lãi tạm tính</th><th style="text-align:right">Tổng/Số dư</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
+          <tbody id="todayBody"></tbody>
+        </table>
+      </div>
+      <div class="footer-info" id="todayFooter"></div>
+    </section>
+
+    <section id="tab-list" style="display:none">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button class="btn" onclick="exportPrincipalList()">⬇ Xuất DS đến hạn gốc</button>
+          <button class="btn" onclick="exportOverdue()">🔴 Xuất quá hạn</button>
+          <button class="btn" onclick="clearPaidLoans()">↺ Hiện lại khoản đã tích TT</button>
+        </div>
+        <div class="toolbar-right">
+          <input type="text" id="listSearch" placeholder="🔍 Mã KH / Tên KH / Số HĐ / CBTD" oninput="renderList()">
+          <select id="listStatus" onchange="renderList()">
+            <option value="">Tất cả trạng thái</option>
+            <option value="over">Quá hạn</option>
+            <option value="today">Đến hạn hôm nay</option>
+            <option value="soon7">≤ 7 ngày</option>
+            <option value="soon30">≤ 30 ngày</option>
+          </select>
+          <select id="listCBTD" onchange="renderList()"><option value="">Tất cả CBTD</option></select>
+          <select id="listSort" onchange="renderList()">
+            <option value="date_asc">Ngày trả vốn gần nhất</option>
+            <option value="amount_desc">Số tiền gốc lớn trước</option>
+            <option value="name_asc">Tên KH A→Z</option>
+          </select>
+        </div>
+      </div>
+      <div class="box subtle">Tab này chỉ báo <b>khách hàng vay kinh doanh</b>. Khi tích “Đã TT”, hợp đồng tự mất khỏi danh sách đang theo dõi.</div>
+      <div id="listEmpty" class="empty-state" style="display:none"></div>
+      <div id="listTable" class="table-wrap" style="display:none">
+        <table>
+          <thead><tr><th>#</th><th>Đã TT</th><th>Mã KH</th><th>Khách hàng</th><th>Số hợp đồng</th><th>Loại vay</th><th style="text-align:right">Dư nợ</th><th>Ngày trả vốn</th><th style="text-align:right">Số tiền vốn</th><th>Ngày trả lãi</th><th style="text-align:right">Số tiền lãi</th><th>Còn ngày vốn</th><th>CBTD</th><th>Trạng thái</th></tr></thead>
+          <tbody id="listBody"></tbody>
+        </table>
+      </div>
+      <div class="footer-info" id="listFooter"></div>
+    </section>
+
+    <section id="tab-due7" style="display:none">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button class="btn" onclick="exportDue7()">⬇ Xuất tiền vay 7 ngày</button>
+          <button class="btn" onclick="clearPaidLoans()">↺ Hiện lại khoản đã tích TT</button>
+        </div>
+        <div class="toolbar-right">
+          <input type="text" id="due7Search" placeholder="🔍 Mã KH / Tên KH / HĐ / CBTD" oninput="renderDue7()">
+          <select id="due7CBTD" onchange="renderDue7()"><option value="">Tất cả CBTD</option></select>
+          <select id="due7Sort" onchange="renderDue7()">
+            <option value="due_asc">Quá hạn/đến hạn trước</option>
+            <option value="total_desc">Tổng tiền lớn trước</option>
+            <option value="name_asc">Tên KH A→Z</option>
+          </select>
+        </div>
+      </div>
+      <div class="box subtle">Tự tính số ngày còn lại theo ngày gốc/lãi gần nhất. Nếu đã qua ngày mà chưa tích thanh toán thì trạng thái báo <b>Quá hạn</b>.</div>
+      <div class="metrics" id="due7Metrics"></div>
+      <div id="due7Empty" class="empty-state" style="display:none"></div>
+      <div id="due7-table" class="table-wrap" style="display:none">
+        <table>
+          <thead><tr><th>#</th><th>Đã TT</th><th>Mã KH</th><th>Khách hàng</th><th>Số HĐ</th><th>Loại vay</th><th>CBTD</th><th>Ngày gần nhất</th><th>Còn/quá hạn</th><th style="text-align:right">Dư nợ</th><th style="text-align:right">Gốc cần thu</th><th style="text-align:right">Lãi cần thu</th><th style="text-align:right">Tổng cần thu</th><th>Trạng thái</th></tr></thead>
+          <tbody id="due7Body"></tbody>
+        </table>
+      </div>
+      <div class="footer-info" id="due7Footer"></div>
+    </section>
+
+    <section id="tab-summary" style="display:none">
+      <div class="summary-grid" id="summaryGrid"></div>
+      <div id="summaryDetail" class="detail-panel" style="display:none">
+        <div class="detail-title" id="summaryTitle"></div>
+        <div class="subtle" id="summarySub"></div>
+        <div class="table-wrap" style="margin-top:.75rem">
+          <table>
+            <thead><tr><th>#</th><th>Khách hàng</th><th>Số HĐ/TK</th><th>Loại</th><th style="text-align:right">Dư nợ/Số dư</th><th>Ngày gốc/ĐH</th><th>Trạng thái</th></tr></thead>
+            <tbody id="summaryBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-deposit" style="display:none">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button class="btn" onclick="exportDeposit()">⬇ Xuất tiền gửi</button>
+          <button class="btn" onclick="clearProcessedDeposits()">↺ Hiện lại TG đã xử lý</button>
+        </div>
+        <div class="toolbar-right">
+          <input type="text" id="depositSearch" placeholder="🔍 Mã KH / Tên KH / Tài khoản" oninput="renderDeposit()">
+          <select id="depositDue" onchange="renderDeposit()">
+            <option value="active">Chưa xử lý</option>
+            <option value="need7">Quá hạn/ĐH ≤7 ngày</option>
+            <option value="over">Chỉ quá hạn</option>
+            <option value="all">Tất cả</option>
+            <option value="processed">Đã xử lý</option>
+          </select>
+          <select id="depositSort" onchange="renderDeposit()">
+            <option value="maturity_asc">Ngày ĐH gần nhất</option>
+            <option value="balance_desc">Số dư lớn trước</option>
+            <option value="name_asc">Tên KH A→Z</option>
+          </select>
+        </div>
+      </div>
+      <div class="metrics" id="depositMetrics"></div>
+      <div id="depositEmpty" class="empty-state" style="display:none"></div>
+      <div id="deposit-table" class="table-wrap" style="display:none">
+        <table>
+          <thead><tr><th>#</th><th>Đã xử lý</th><th>Mã KH</th><th>Khách hàng</th><th>Tài khoản</th><th>Kỳ hạn</th><th>DAO/Sản phẩm</th><th>Ngày gửi</th><th>Ngày ĐH</th><th>Còn/quá hạn</th><th style="text-align:right">Lãi suất</th><th style="text-align:right">Số dư QĐ</th><th style="text-align:right">Số dư BQ QĐ</th></tr></thead>
+          <tbody id="depositBody"></tbody>
+        </table>
+      </div>
+      <div class="footer-info" id="depositFooter"></div>
+    </section>
+
+    <section id="tab-customer" style="display:none">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button class="btn" onclick="addCustomer()">➕ Thêm khách hàng</button>
+          <button class="btn" onclick="exportCustomer()">⬇ Xuất tổng quan KH</button>
+        </div>
+        <div class="toolbar-right">
+          <input type="text" id="customerSearch" placeholder="🔍 Mã KH / Tên KH / SĐT / Địa chỉ" oninput="renderCustomer()">
+          <select id="customerSort" onchange="renderCustomer()">
+            <option value="name_asc">Tên KH A→Z</option>
+            <option value="name_desc">Tên KH Z→A</option>
+            <option value="ma_asc">Mã KH A→Z</option>
+          </select>
+        </div>
+      </div>
+      <div class="box subtle">Tab Tổng quan khách hàng đã chuyển xuống vị trí số 6 theo yêu cầu.</div>
+      <div class="metrics" id="customerMetrics"></div>
+      <div id="customerEmpty" class="empty-state" style="display:none"></div>
+      <div id="customerTable" class="table-wrap" style="display:none">
+        <table>
+          <thead><tr><th>#</th><th>Mã KH</th><th style="min-width:320px">Tên khách hàng</th><th>Số điện thoại</th><th style="min-width:420px">Địa chỉ</th><th>Xóa</th></tr></thead>
+          <tbody id="customerBody"></tbody>
+        </table>
+      </div>
+      <div class="footer-info" id="customerFooter"></div>
+    </section>
+
+    <section id="tab-renewal" style="display:none">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button class="btn" onclick="exportRenewal()">⬇ Xuất tái cấp HM</button>
+        </div>
+        <div class="toolbar-right">
+          <input type="text" id="renewSearch" placeholder="🔍 Mã KH / Tên KH / CBTD" oninput="renderRenewal()">
+          <select id="renewSort" onchange="renderRenewal()">
+            <option value="date_asc">Ngày tái cấp/Hết hạn gần nhất</option>
+            <option value="limit_desc">Hạn mức lớn trước</option>
+            <option value="name_asc">Tên KH A→Z</option>
+          </select>
+        </div>
+      </div>
+      <div id="renewEmpty" class="empty-state" style="display:none"></div>
+      <div id="renewTable" class="table-wrap" style="display:none">
+        <table>
+          <thead><tr><th>#</th><th>Mã KH</th><th>Khách hàng</th><th>CBTD</th><th style="text-align:right">Hạn mức</th><th>Ngày cấp</th><th>Thời hạn tái cấp</th><th>Ngày hết hạn</th><th>Còn ngày</th><th>Tình trạng</th><th>Ghi chú</th></tr></thead>
+          <tbody id="renewBody"></tbody>
+        </table>
+      </div>
+      <div class="footer-info" id="renewFooter"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  const VERSION = 'V23_CLEAN_PAYMENT_2026_05_25';
+  const DATA_KEY = 'qldn_v23_clean_data';
+  const PAID_KEY = 'qldn_v23_paid_loans';
+  const DEPOSIT_KEY = 'qldn_v23_processed_deposits';
+  const TASK_KEY = 'qldn_v23_today_tasks';
+  const META_KEY = 'qldn_v23_upload_meta';
+  const TABS = ['today','list','due7','summary','deposit','customer','renewal'];
+  const STATUS = ['Chưa xử lý','Đã gọi','Hứa trả','Đã thanh toán'];
+  const state = {loans:[],customers:[],deposits:[],renewals:[]};
+
+  const $ = id => document.getElementById(id);
+  const today = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+  const safe = (fn,fb) => { try{return fn();}catch(e){ console.warn(e); return fb; } };
+  const html = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const attr = v => html(v).replace(/'/g,'&#39;');
+  const jsq = v => String(v ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'');
+  const norm = v => String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-z0-9]+/g,' ').trim();
+  const compact = v => norm(v).replace(/\s+/g,'');
+
+  function num(v){
+    if(v===null || v===undefined || v==='') return 0;
+    if(typeof v === 'number' && isFinite(v)) return v;
+    let s = String(v).replace(/\s/g,'').replace(/₫|vnd/ig,'');
+    if(!s) return 0;
+    if(s.includes('.') && s.includes(',')){
+      if(s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g,'').replace(',', '.');
+      else s = s.replace(/,/g,'');
+    }else if(s.includes(',')){
+      const p=s.split(',');
+      if(p.length===2 && p[1].length<=2) s=p[0].replace(/\./g,'')+'.'+p[1];
+      else s=s.replace(/,/g,'');
+    }else{
+      const p=s.split('.');
+      if(p.length>2 || (p.length===2 && p[1].length===3)) s=s.replace(/\./g,'');
+    }
+    const n=Number(s.replace(/[^0-9.-]/g,''));
+    return isFinite(n)?n:0;
+  }
+  function money(n){ return Number(n||0).toLocaleString('vi-VN') + ' ₫'; }
+  function moneyText(n){ return Number(n||0).toLocaleString('vi-VN') + ' VND'; }
+  function moneyShort(n){
+    n=Number(n||0);
+    if(Math.abs(n)>=1e12) return (n/1e12).toLocaleString('vi-VN',{maximumFractionDigits:2})+' nghìn tỷ';
+    if(Math.abs(n)>=1e9) return (n/1e9).toLocaleString('vi-VN',{maximumFractionDigits:2})+' tỷ';
+    if(Math.abs(n)>=1e6) return (n/1e6).toLocaleString('vi-VN',{maximumFractionDigits:1})+' tr';
+    return n.toLocaleString('vi-VN');
+  }
+  function excelDate(v){
+    if(v instanceof Date && !isNaN(v)){ const d=new Date(v); d.setHours(0,0,0,0); return d; }
+    if(typeof v === 'number' && isFinite(v)){
+      if(v>20000 && v<80000){ const d=new Date(Math.round((v-25569)*86400*1000)); d.setHours(0,0,0,0); return d; }
+      return null;
+    }
+    const s=String(v ?? '').trim();
+    if(!s) return null;
+    if(/^\d+(\.\d+)?$/.test(s)) return excelDate(Number(s));
+    let m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+    if(m){ let y=Number(m[3]); if(y<100)y+=2000; const d=new Date(y,Number(m[2])-1,Number(m[1])); if(!isNaN(d)){d.setHours(0,0,0,0);return d;} }
+    m=s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+    if(m){ const d=new Date(Number(m[1]),Number(m[2])-1,Number(m[3])); if(!isNaN(d)){d.setHours(0,0,0,0);return d;} }
+    const d=new Date(s); if(!isNaN(d)){d.setHours(0,0,0,0);return d;}
+    return null;
+  }
+  function dkey(d){ const x=excelDate(d); return x ? `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}` : ''; }
+  function fmtDate(d){ const x=excelDate(d); return x ? `${String(x.getDate()).padStart(2,'0')}/${String(x.getMonth()+1).padStart(2,'0')}/${x.getFullYear()}` : '—'; }
+  function daysDiff(d){ const x=excelDate(d); if(!x) return null; return Math.round((x-today())/86400000); }
+  function dueText(d){ if(d===null || d===undefined) return '—'; if(d<0) return `Quá hạn ${Math.abs(d)} ngày`; if(d===0) return 'Đến hạn hôm nay'; return `Còn ${d} ngày`; }
+  function statusBadge(days){ if(days===null) return ['Không có ngày','badge-gray']; if(days<0) return [`Quá hạn ${Math.abs(days)} ngày`,'badge-red']; if(days===0) return ['Đến hạn hôm nay','badge-red']; if(days<=7) return [`Còn ${days} ngày`,'badge-amber']; if(days<=30) return [`Còn ${days} ngày`,'badge-blue']; return ['Bình thường','badge-green']; }
+
+  function store(key, fb){ return safe(()=>JSON.parse(localStorage.getItem(key)||'') || fb, fb); }
+  function setStore(key,val){ safe(()=>localStorage.setItem(key, JSON.stringify(val))); }
+  function dataSet(obj){
+    state.loans = Array.isArray(obj.loans) ? obj.loans : [];
+    state.customers = Array.isArray(obj.customers) ? obj.customers : [];
+    state.deposits = Array.isArray(obj.deposits) ? obj.deposits : [];
+    state.renewals = Array.isArray(obj.renewals) ? obj.renewals : [];
+  }
+  function loans(){ return state.loans; }
+  function customers(){ return state.customers; }
+  function deposits(){ return state.deposits; }
+  function renewals(){ return state.renewals; }
+
+  function saveData(showAlert){
+    setStore(DATA_KEY,{version:VERSION,savedAt:new Date().toISOString(),...state});
+    if(showAlert) alert('Đã lưu dữ liệu dashboard trên trình duyệt này.');
+  }
+  function loadData(){
+    const s=store(DATA_KEY,null);
+    if(s && (Array.isArray(s.loans)||Array.isArray(s.customers)||Array.isArray(s.deposits)||Array.isArray(s.renewals))){ dataSet(s); return true; }
+    return false;
+  }
+  function setMeta(fileName){
+    setStore(META_KEY,{fileName:fileName||'',uploadedAt:new Date().toISOString()});
+    updateHeader();
+  }
+  function updateHeader(){
+    const m=store(META_KEY,null);
+    const now=fmtDate(new Date());
+    let meta = 'Chưa upload dữ liệu';
+    if(m && m.uploadedAt){ const d=new Date(m.uploadedAt); meta = isNaN(d) ? 'Đã upload' : `${fmtDate(d)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+    $('headerDate').innerHTML = `<div><b>📅 Ngày hiện tại:</b> ${now}</div><div><b>⬆️ Dữ liệu mới nhất:</b> ${html(meta)}</div><div><b>✅ Phiên bản:</b> V23 làm lại sạch</div>${m&&m.fileName?`<div title="${attr(m.fileName)}">File: ${html(m.fileName)}</div>`:''}`;
+  }
+
+  function get(row, labels){
+    if(!row) return '';
+    const keys=Object.keys(row);
+    for(const label of labels){ const want=compact(label); for(const k of keys){ if(compact(k)===want && String(row[k]??'').trim()!=='') return row[k]; } }
+    for(const label of labels){ const want=norm(label); for(const k of keys){ const nk=norm(k); if((nk.includes(want)||want.includes(nk)) && String(row[k]??'').trim()!=='') return row[k]; } }
+    return '';
+  }
+  function matrixOf(ws){ return XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,blankrows:false}); }
+  function headerScore(line,type){
+    let s=0;
+    if(type==='loan'){ if(line.includes('so hop dong'))s+=4; if(line.includes('ngay tra von'))s+=4; if(line.includes('so tien lai'))s+=3; if(line.includes('du no'))s+=2; }
+    if(type==='deposit'){ if(line.includes('tai khoan'))s+=3; if(line.includes('ma kh'))s+=2; if(line.includes('so du qd')||line.includes('so du nt'))s+=4; if(line.includes('ngay gui')||line.includes('ngay dh'))s+=2; }
+    if(type==='customer'){ if(line.includes('ma kh'))s+=4; if(line.includes('ten khach hang'))s+=4; if(line.includes('so dien thoai')||line.includes('dia chi'))s+=1; }
+    if(type==='renewal'){ if(line.includes('han muc'))s+=4; if(line.includes('thoi han tai cap')||line.includes('ngay het han'))s+=4; if(line.includes('cbtd'))s+=2; }
+    return s;
+  }
+  function tableRows(ws,type){
+    const m=matrixOf(ws); let best=0,bestScore=-1;
+    for(let i=0;i<Math.min(m.length,40);i++){
+      const line=(m[i]||[]).map(norm).join(' ');
+      const s=headerScore(line,type);
+      if(s>bestScore){ bestScore=s; best=i; }
+    }
+    const raw=(m[best]||[]).map((x,i)=>String(x||`COT_${i+1}`).trim()||`COT_${i+1}`);
+    const seen={};
+    const headers=raw.map(h=>{ seen[h]=(seen[h]||0)+1; return seen[h]===1?h:`${h}_${seen[h]}`; });
+    const out=[];
+    for(let r=best+1;r<m.length;r++){
+      const arr=m[r]||[];
+      if(!arr.some(v=>String(v??'').trim()!=='')) continue;
+      const obj={}; headers.forEach((h,i)=>obj[h]=arr[i]??''); out.push(obj);
+    }
+    return out;
+  }
+  function sheetText(ws,name){
+    const m=matrixOf(ws); let s=norm(name);
+    for(let i=0;i<Math.min(m.length,20);i++){ for(let j=0;j<Math.min((m[i]||[]).length,40);j++) s+=' '+norm(m[i][j]); }
+    return s;
+  }
+  function detectSheet(ws,name,idx){
+    const n=norm(name), t=sheetText(ws,name);
+    const hasDeposit = n.includes('tien gui') || n.includes('mis') || (t.includes('tai khoan') && (t.includes('so du qd')||t.includes('so du nt')) && (t.includes('ngay gui')||t.includes('ngay dh')));
+    const hasLoan = n.includes('thu no') || n.includes('ke hoach') || (t.includes('so hop dong') && t.includes('ngay tra von'));
+    const hasRenew = n.includes('han muc') || n.includes('tai cap') || (t.includes('han muc') && (t.includes('ngay het han')||t.includes('thoi han tai cap')));
+    const hasCustomer = n.includes('danh sach kh') || (t.includes('ma kh') && t.includes('ten khach hang') && !hasDeposit && !hasLoan && !hasRenew);
+    if(hasDeposit) return 'deposit';
+    if(hasLoan) return 'loan';
+    if(hasRenew) return 'renewal';
+    if(hasCustomer || idx===0) return 'customer';
+    return '';
+  }
+
+  function parseCustomers(rows){
+    return rows.map(r=>({
+      maKH:String(get(r,['Mã KH','Ma KH','Mã khách hàng','MA KHACH HANG','CIF','Customer ID'])||'').trim(),
+      name:String(get(r,['Tên khách hàng','Ten khach hang','Khách hàng','Customer name'])||'').trim(),
+      phone:String(get(r,['Số điện thoại','So dien thoai','SĐT','SDT','Điện thoại','DT DI DONG','Mobile','Phone'])||'').trim(),
+      address:String(get(r,['Địa chỉ','Dia chi','ADDRESS'])||'').trim(),
+      cbtd:String(get(r,['CBTD','Cán bộ tín dụng','Can bo tin dung','RM','DAO_NAME'])||'').trim()
+    })).filter(x=>x.maKH||x.name||x.phone||x.address);
+  }
+  function parseLoans(rows){
+    return rows.map(r=>({
+      maKH:String(get(r,['Mã KH','Ma KH','Mã khách hàng','MA KHACH HANG','CIF'])||'').trim(),
+      name:String(get(r,['Tên khách hàng','Ten khach hang','Khách hàng'])||'').trim(),
+      contract:String(get(r,['Số hợp đồng','So hop dong','Hợp đồng','Contract','LD'])||'').trim(),
+      loanType:String(get(r,['Loại hình vay','Loai hinh vay','Loại vay','SUB.CATEGORYNM','SUB CATEGORYNM','SUB_CATEGORYNM'])||'').trim(),
+      currency:String(get(r,['Tiền tệ','Tien te','Currency'])||'VND').trim(),
+      loanDate:excelDate(get(r,['Ngày vay','Ngay vay','Loan date'])),
+      maturityDate:excelDate(get(r,['Ngày ĐH','Ngay DH','Ngày đáo hạn','Maturity date','Due date'])),
+      outstanding:num(get(r,['Dư nợ','Du no','DƯ NỢ','Outstanding','Số dư nợ'])),
+      vonDate:excelDate(get(r,['Ngày trả Vốn','Ngay tra Von','Ngày trả vốn','Ngay tra von','Principal date'])),
+      vonAmount:num(get(r,['Số tiền Vốn','So tien Von','Số tiền vốn','So tien von','Principal amount'])),
+      laiDate:excelDate(get(r,['Ngày trả Lãi','Ngay tra Lai','Ngày trả lãi','Ngay tra lai','Interest date'])),
+      laiAmount:num(get(r,['Số tiền Lãi','So tien Lai','Số tiền lãi','So tien lai','Interest amount'])),
+      vonQH:num(get(r,['Vốn quá hạn','Von qua han','Vốn QH','Von QH','Principal overdue'])),
+      laiQH:num(get(r,['Lãi quá hạn','Lai qua han','Lãi QH','Lai QH','Interest overdue'])),
+      cbtd:String(get(r,['Cán bộ tín dụng','Can bo tin dung','CBTD','RM','Cán bộ TD'])||'Chưa phân công').trim()
+    })).filter(x=>x.maKH||x.name||x.contract);
+  }
+  function parseDeposits(rows){
+    return rows.map(r=>({
+      maKH:String(get(r,['Mã KH','Ma KH','MÃ KHÁCH HÀNG','MA KHACH HANG','CIF','Customer ID'])||'').trim(),
+      name:String(get(r,['Tên khách hàng','Ten khach hang','TÊN KHÁCH HÀNG','Khách hàng'])||'').trim(),
+      account:String(get(r,['Tài khoản','Tai khoan','TÀI KHOẢN','Số tài khoản','Account'])||'').trim(),
+      depositDate:excelDate(get(r,['Ngày gửi','Ngay gui','NGÀY GỬI','Deposit date'])),
+      maturityDate:excelDate(get(r,['Ngày ĐH','Ngay DH','NGÀY ĐH','Ngày đáo hạn','Maturity date','Due date'])),
+      termName:String(get(r,['Kỳ hạn','Ky han','KỲ HẠN T24','KY HAN T24','Term'])||'').trim(),
+      product:String(get(r,['Sản phẩm','San pham','SẢN PHẨM','Product'])||'').trim(),
+      subProduct:String(get(r,['Sản phẩm con','San pham con','SẢN PHẨM CON','Sub product'])||'').trim(),
+      rate:num(get(r,['Lãi suất','Lai suat','LÃI SUẤT','Rate'])),
+      balanceNt:num(get(r,['Số dư NT','So du NT','SỐ DƯ NT','Balance NT'])),
+      balanceVnd:num(get(r,['Số dư QĐ','So du QD','SỐ DƯ QĐ','Balance VND'])),
+      avgBalanceVnd:num(get(r,['Số dư BQ QĐ','So du BQ QD','SỐ DƯ BQ QĐ','Average balance'])),
+      daoName:String(get(r,['DAO_NAME','DAO NAME','Tên DAO','CBTD','RM'])||'').trim(),
+      sellId:String(get(r,['SELL_ID','SELL ID'])||'').trim()
+    })).filter(x=>(x.account||x.maKH||x.name) && (x.balanceVnd||x.balanceNt||x.avgBalanceVnd||x.maturityDate||x.depositDate));
+  }
+  function parseRenewals(rows){
+    return rows.map(r=>({
+      maKH:String(get(r,['Mã KH','Ma KH','Mã khách hàng'])||'').trim(),
+      name:String(get(r,['Tên khách hàng','Ten khach hang','Khách hàng'])||'').trim(),
+      cbtd:String(get(r,['CBTD','Cán bộ tín dụng','Can bo tin dung','RM'])||'Chưa phân công').trim(),
+      limit:num(get(r,['Hạn mức tín dụng','Han muc tin dung','Hạn mức','Han muc'])),
+      grantDate:excelDate(get(r,['Ngày cấp hạn mức','Ngay cap han muc','Ngày cấp'])),
+      renewDate:excelDate(get(r,['Thời hạn tái cấp','Thoi han tai cap','Ngày tái cấp','Ngay tai cap'])),
+      expireDate:excelDate(get(r,['Ngày hết hạn','Ngay het han','Ngày ĐH','Ngay DH'])),
+      status:String(get(r,['Tình trạng hồ sơ','Tinh trang ho so','Tình trạng','Status'])||'Theo dõi').trim(),
+      note:String(get(r,['Ghi chú','Ghi chu','Note'])||'').trim()
+    })).filter(x=>x.maKH||x.name||x.limit||x.renewDate||x.expireDate);
+  }
+
+  function loadWorkbook(wb){
+    const out={loans:[],customers:[],deposits:[],renewals:[],sheetMap:[],errors:[]};
+    (wb.SheetNames||[]).forEach((sn,idx)=>{
+      const ws=wb.Sheets[sn]; const type=detectSheet(ws,sn,idx);
+      out.sheetMap.push(`${sn} → ${type||'bỏ qua'}`);
+      if(!type) return;
+      try{
+        const rows=tableRows(ws,type);
+        if(type==='loan') out.loans.push(...parseLoans(rows));
+        if(type==='customer') out.customers.push(...parseCustomers(rows));
+        if(type==='deposit') out.deposits.push(...parseDeposits(rows));
+        if(type==='renewal') out.renewals.push(...parseRenewals(rows));
+      }catch(e){ out.errors.push(`${sn}: ${e.message||e}`); }
+    });
+    dataSet(out);
+    saveData(false);
+    return out;
+  }
+
+  function customerInfo(maKH,name){
+    const m=String(maKH||''), n=norm(name||'');
+    return customers().find(c=>(m && String(c.maKH)===m) || (n && norm(c.name)===n)) || {};
+  }
+  function phoneFor(x){ const c=customerInfo(x.maKH,x.name); return x.phone || c.phone || ''; }
+  function officerDeposit(r){ const c=customerInfo(r.maKH,r.name); return r.daoName || r.sellId || c.cbtd || 'Chưa phân công tiền gửi'; }
+
+  function loanKey(r){ return ['loan',r.contract||'',r.maKH||'',norm(r.name||''),dkey(r.vonDate),dkey(r.laiDate)].join('|'); }
+  function paidStore(){ return store(PAID_KEY,{items:{}}); }
+  function isLoanPaid(r){ return !!(paidStore().items||{})[loanKey(r)]; }
+  function setLoanPaidByKey(key, checked){
+    const s=paidStore(); s.items=s.items||{};
+    if(checked) s.items[key]={at:new Date().toISOString()}; else delete s.items[key];
+    setStore(PAID_KEY,s); renderAllCurrent();
+  }
+  function clearPaidLoans(){ if(confirm('Hiện lại toàn bộ khoản vay đã tích Đã thanh toán?')){ localStorage.removeItem(PAID_KEY); renderAllCurrent(); } }
+
+  function depositKey(r){ return ['deposit',r.account||'',r.maKH||'',norm(r.name||''),dkey(r.maturityDate)].join('|'); }
+  function depositStore(){ return store(DEPOSIT_KEY,{items:{}}); }
+  function isDepositProcessed(r){ return !!(depositStore().items||{})[depositKey(r)]; }
+  function setDepositProcessedByKey(key, checked){
+    const s=depositStore(); s.items=s.items||{};
+    if(checked) s.items[key]={at:new Date().toISOString()}; else delete s.items[key];
+    setStore(DEPOSIT_KEY,s); renderAllCurrent();
+  }
+  function clearProcessedDeposits(){ if(confirm('Hiện lại toàn bộ tiền gửi đã xử lý?')){ localStorage.removeItem(DEPOSIT_KEY); renderAllCurrent(); } }
+
+  function taskStore(){ return store(TASK_KEY,{items:{}}); }
+  function taskMeta(key){ const x=(taskStore().items||{})[key]||{}; return {status:x.status||'Chưa xử lý',note:x.note||''}; }
+  function setTask(key, patch){ const s=taskStore(); s.items=s.items||{}; s.items[key]={...(s.items[key]||{}),...patch,at:new Date().toISOString()}; setStore(TASK_KEY,s); }
+
+  function isBusinessLoan(r){
+    const n=norm(r.loanType);
+    if(n.includes('tieu dung') || n.includes('consumer')) return false;
+    if(!n) return true;
+    return n.includes('kinh doanh') || n.includes('sxkd') || n.includes('san xuat') || n.includes('von luu dong') || n.includes('bo sung von') || n.includes('doanh') || !n.includes('tieu dung');
+  }
+
+  function loanDueItems(){
+    const items=[];
+    loans().forEach(r=>{
+      const key=loanKey(r);
+      const dv=daysDiff(r.vonDate), dl=daysDiff(r.laiDate);
+      if((dv!==null && dv<=7) || (r.vonQH||0)>0){
+        items.push({loan:r,loanKey:key,dueDate:r.vonDate||today(),dueDays:dv??-1,principal:Number(r.vonAmount||r.vonQH||0),interest:0});
+      }
+      if((dl!==null && dl<=7) || (r.laiQH||0)>0){
+        items.push({loan:r,loanKey:key,dueDate:r.laiDate||today(),dueDays:dl??-1,principal:0,interest:Number(r.laiAmount||r.laiQH||0)});
+      }
+    });
+    return items;
+  }
+  function todayLoanGroups(){
+    const map=new Map();
+    loanDueItems().forEach(it=>{
+      const r=it.loan;
+      const k=['loanGroup',r.maKH||'',norm(r.name||''),dkey(it.dueDate)].join('|');
+      if(!map.has(k)){
+        const meta=taskMeta(k);
+        map.set(k,{type:'loan',typeLabel:'Tiền vay',badge:'badge-red',key:k,maKH:r.maKH,name:r.name,phone:phoneFor(r),refSet:new Set(),officerSet:new Set(),dueDate:it.dueDate,dueDays:it.dueDays,principal:0,interest:0,amount:0,loanKeys:new Set(),status:meta.status,note:meta.note,done:false});
+      }
+      const g=map.get(k);
+      g.refSet.add(r.contract||'');
+      g.officerSet.add(r.cbtd||'Chưa phân công');
+      g.loanKeys.add(it.loanKey);
+      g.principal += it.principal||0;
+      g.interest += it.interest||0;
+      g.amount = g.principal + g.interest;
+      if(it.dueDays < g.dueDays) g.dueDays = it.dueDays;
+    });
+    const paid=(paidStore().items||{});
+    return [...map.values()].map(g=>{
+      const keys=[...g.loanKeys];
+      g.ref = keys.length > 1 ? `${keys.length} HĐ: ${[...g.refSet].filter(Boolean).join(', ')}` : ([...g.refSet][0] || '');
+      g.officer = [...g.officerSet].filter(Boolean).join(', ') || 'Chưa phân công';
+      g.actionKeys = keys;
+      g.done = keys.length ? keys.every(k=>paid[k]) : false;
+      if(g.status==='Đã thanh toán') g.done = true;
+      g.dueText = dueText(g.dueDays);
+      return g;
+    });
+  }
+  function todayDepositRows(){
+    return deposits().map(r=>{
+      const dd=daysDiff(r.maturityDate);
+      if(dd===null || dd>7) return null;
+      const key=['depositGroup',depositKey(r)].join('|'), meta=taskMeta(key);
+      return {type:'deposit',typeLabel:'Tiền gửi',badge:'badge-blue',key,actionKeys:[depositKey(r)],maKH:r.maKH,name:r.name,phone:phoneFor(r),ref:r.account,officer:officerDeposit(r),dueDate:r.maturityDate,dueDays:dd,dueText:dueText(dd),principal:null,interest:null,amount:r.balanceVnd||r.balanceNt||0,status:meta.status,note:meta.note,done:isDepositProcessed(r)||meta.status==='Đã thanh toán'};
+    }).filter(Boolean);
+  }
+  function todayRowsBase(){ return [...todayLoanGroups(),...todayDepositRows()]; }
+  function buildSelect(id, placeholder, items){
+    const sel=$(id); if(!sel) return;
+    const old=sel.value;
+    const arr=[...new Set(items.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b,'vi'));
+    sel.innerHTML=`<option value="">${html(placeholder)}</option>`+arr.map(x=>`<option value="${attr(x)}">${html(x)}</option>`).join('');
+    if(arr.includes(old)) sel.value=old;
+  }
+  function applyTodayFilters(){
+    const all=todayRowsBase();
+    buildSelect('todayCBTD','Tất cả CBTD/phụ trách',all.map(x=>x.officer));
+    let rows=all.slice();
+    const q=norm($('todaySearch')?.value||''), type=$('todayType')?.value||'', cbtd=$('todayCBTD')?.value||'', st=$('todayStatus')?.value||'pending', sort=$('todaySort')?.value||'due_asc';
+    if(q) rows=rows.filter(x=>norm(`${x.maKH} ${x.name} ${x.phone} ${x.ref} ${x.officer}`).includes(q));
+    if(type) rows=rows.filter(x=>x.type===type);
+    if(cbtd) rows=rows.filter(x=>x.officer===cbtd);
+    if(st==='pending') rows=rows.filter(x=>!x.done && x.status!=='Đã thanh toán');
+    else if(st==='Đã thanh toán') rows=rows.filter(x=>x.done || x.status==='Đã thanh toán');
+    else if(st && st!=='all') rows=rows.filter(x=>x.status===st && !x.done);
+    if(sort==='amount_desc') rows.sort((a,b)=>(b.amount||0)-(a.amount||0));
+    else if(sort==='name_asc') rows.sort((a,b)=>(a.name||'').localeCompare(b.name||'','vi'));
+    else rows.sort((a,b)=>(a.dueDays??99999)-(b.dueDays??99999) || (b.amount||0)-(a.amount||0));
+    return rows;
+  }
+  function setTodayPaid(key, checked){
+    const row=todayRowsBase().find(x=>x.key===key);
+    if(!row) return;
+    if(row.type==='loan') row.actionKeys.forEach(k=>setLoanPaidByKey(k, checked));
+    else row.actionKeys.forEach(k=>setDepositProcessedByKey(k, checked));
+  }
+  function updateTodayStatus(key,status){
+    setTask(key,{status});
+    if(status==='Đã thanh toán') setTodayPaid(key,true);
+    else renderToday();
+  }
+  function updateTodayNote(key,note){ setTask(key,{note}); }
+
+  function renderToday(){
+    const all=todayRowsBase(), rows=applyTodayFilters();
+    const pending=all.filter(x=>!x.done && x.status!=='Đã thanh toán');
+    const loan=pending.filter(x=>x.type==='loan'), dep=pending.filter(x=>x.type==='deposit'), over=pending.filter(x=>x.dueDays<0), done=all.length-pending.length;
+    $('todayMetrics').innerHTML=`<div class="metric"><div class="metric-lbl">✅ Việc chưa hoàn tất</div><div class="metric-val blue">${pending.length}</div><div class="metric-sub">${new Set(pending.map(x=>x.maKH||x.name)).size} khách hàng</div></div>
+      <div class="metric"><div class="metric-lbl">🔴 Quá hạn</div><div class="metric-val red">${over.length}</div><div class="metric-sub">Chưa tích TT/XL</div></div>
+      <div class="metric"><div class="metric-lbl">💳 Tiền vay</div><div class="metric-val amber">${loan.length}</div><div class="metric-sub">${moneyShort(loan.reduce((s,x)=>s+(x.amount||0),0))}</div></div>
+      <div class="metric"><div class="metric-lbl">🏦 Tiền gửi</div><div class="metric-val blue">${dep.length}</div><div class="metric-sub">${moneyShort(dep.reduce((s,x)=>s+(x.amount||0),0))}</div></div>
+      <div class="metric"><div class="metric-lbl">✅ Đã TT/XL</div><div class="metric-val green">${done}</div><div class="metric-sub">Đã tự ẩn</div></div>`;
+    const empty=$('todayEmpty'), wrap=$('today-table'), body=$('todayBody');
+    if(!rows.length){ empty.style.display='block'; wrap.style.display='none'; empty.textContent=all.length?'Không có việc cần làm theo bộ lọc hiện tại.':'Chưa có dữ liệu vay/gửi quá hạn hoặc đến hạn trong 7 ngày.'; $('todayFooter').textContent=''; return; }
+    empty.style.display='none'; wrap.style.display='block';
+    body.innerHTML=rows.map((x,i)=>{
+      const opts=STATUS.map(s=>`<option value="${attr(s)}" ${x.status===s?'selected':''}>${html(s)}</option>`).join('');
+      const phone=x.phone||'', call=phone?`<a class="btn-mini" href="tel:${attr(phone)}">📞 Gọi</a>`:'<span class="badge badge-gray">Không có SĐT</span>';
+      return `<tr class="${x.done?'':(x.dueDays<0?'row-over':'row-soon')}"><td class="center">${i+1}</td>
+      <td class="center"><input class="paid-check" type="checkbox" ${x.done?'checked':''} onchange="setTodayPaid('${jsq(x.key)}',this.checked)" title="Tích xong sẽ tự ẩn khỏi danh sách chưa hoàn tất"></td>
+      <td><span class="badge ${x.badge}">${html(x.typeLabel)}</span></td><td class="mono">${html(x.maKH||'—')}</td>
+      <td style="font-weight:700;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${attr(x.name)}">${html(x.name||'—')}</td>
+      <td class="mono">${html(phone||'—')}</td><td>${call}</td>
+      <td>${x.type==='loan'?`<button class="btn-mini" onclick="copyTodayMessage('${jsq(x.key)}')">📋 Copy</button>`:'—'}</td>
+      <td class="mono" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${attr(x.ref)}">${html(x.ref||'—')}</td>
+      <td style="max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${attr(x.officer)}">${html(x.officer||'—')}</td>
+      <td>${fmtDate(x.dueDate)}</td><td class="center">${x.dueDays<0?`<span style="color:var(--red);font-weight:700">${html(x.dueText)}</span>`:html(x.dueText)}</td>
+      <td class="num">${x.type==='loan'?money(x.principal||0):'—'}</td><td class="num">${x.type==='loan'?money(x.interest||0):'—'}</td><td class="num">${money(x.amount||0)}</td>
+      <td><select class="task-status" onchange="updateTodayStatus('${jsq(x.key)}',this.value)">${opts}</select></td>
+      <td><input class="edit-input task-note" value="${attr(x.note)}" placeholder="Ghi chú xử lý" onchange="updateTodayNote('${jsq(x.key)}',this.value)"></td></tr>`;
+    }).join('');
+    $('todayFooter').textContent=`Hiển thị ${rows.length}/${all.length} việc. Mẫu tin nhắn tiền vay đã cộng gộp theo khách hàng và ngày đến hạn.`;
+  }
+  function copyTodayMessage(key){
+    const row=todayRowsBase().find(x=>x.key===key && x.type==='loan');
+    if(!row) return alert('Không tìm thấy dòng tiền vay để tạo tin nhắn.');
+    const msg=`Kính chào Quý khách ${row.name || ''},\n\nSố tiền gốc đến hạn: ${moneyText(row.principal||0)}\nLãi tạm tính: ${moneyText(row.interest||0)}\nTổng số tiền cần thanh toán: ${moneyText((row.principal||0)+(row.interest||0))}`;
+    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(msg).then(()=>alert('Đã copy mẫu tin nhắn.')).catch(()=>prompt('Sếp copy thủ công:', msg));
+    else prompt('Sếp copy thủ công:', msg);
+  }
+
+  function listBase(){ return loans().filter(r=>isBusinessLoan(r) && !isLoanPaid(r) && r.vonDate); }
+  function applyListFilters(){
+    buildSelect('listCBTD','Tất cả CBTD',loans().filter(isBusinessLoan).map(x=>x.cbtd));
+    let rows=listBase();
+    const q=norm($('listSearch')?.value||''), st=$('listStatus')?.value||'', cbtd=$('listCBTD')?.value||'', sort=$('listSort')?.value||'date_asc';
+    if(q) rows=rows.filter(r=>norm(`${r.maKH} ${r.name} ${r.contract} ${r.cbtd}`).includes(q));
+    if(cbtd) rows=rows.filter(r=>r.cbtd===cbtd);
+    if(st) rows=rows.filter(r=>{ const d=daysDiff(r.vonDate); if(st==='over') return d!==null&&d<0; if(st==='today') return d===0; if(st==='soon7') return d!==null&&d>=0&&d<=7; if(st==='soon30') return d!==null&&d>=0&&d<=30; return true; });
+    if(sort==='amount_desc') rows.sort((a,b)=>(b.vonAmount||0)-(a.vonAmount||0));
+    else if(sort==='name_asc') rows.sort((a,b)=>(a.name||'').localeCompare(b.name||'','vi'));
+    else rows.sort((a,b)=>(excelDate(a.vonDate)?.getTime()||9999999999999)-(excelDate(b.vonDate)?.getTime()||9999999999999));
+    return rows;
+  }
+  function renderList(){
+    const rows=applyListFilters(), empty=$('listEmpty'), table=$('listTable'), body=$('listBody');
+    if(!rows.length){ empty.style.display='block'; table.style.display='none'; empty.textContent='Không có khách hàng vay kinh doanh đến hạn gốc theo bộ lọc hiện tại hoặc các khoản đã được tích thanh toán.'; $('listFooter').textContent=''; return; }
+    empty.style.display='none'; table.style.display='block';
+    body.innerHTML=rows.map((r,i)=>{ const d=daysDiff(r.vonDate), [lbl,cls]=statusBadge(d); return `<tr class="${d!==null&&d<0?'row-over':(d!==null&&d<=7?'row-soon':'')}"><td class="center">${i+1}</td>
+      <td class="center"><input class="paid-check" type="checkbox" onchange="setLoanPaidByKey('${jsq(loanKey(r))}',this.checked)"></td>
+      <td class="mono">${html(r.maKH||'—')}</td><td style="font-weight:700;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${attr(r.name)}">${html(r.name||'—')}</td>
+      <td class="mono">${html(r.contract||'—')}</td><td>${html(r.loanType||'Kinh doanh/khác')}</td><td class="num">${money(r.outstanding)}</td>
+      <td>${fmtDate(r.vonDate)}</td><td class="num">${money(r.vonAmount||r.vonQH||0)}</td><td>${fmtDate(r.laiDate)}</td><td class="num">${money(r.laiAmount||r.laiQH||0)}</td>
+      <td class="center">${d===null?'—':d}</td><td>${html(r.cbtd||'—')}</td><td><span class="badge ${cls}">${lbl}</span></td></tr>`; }).join('');
+    $('listFooter').textContent=`Hiển thị ${rows.length}/${listBase().length} hợp đồng vay kinh doanh chưa tích thanh toán.`;
+  }
+
+  function due7Base(){
+    return loans().filter(r=>{
+      if(isLoanPaid(r)) return false;
+      const dv=daysDiff(r.vonDate), dl=daysDiff(r.laiDate);
+      return (dv!==null&&dv<=7)||(dl!==null&&dl<=7)||(r.vonQH||0)>0||(r.laiQH||0)>0;
+    });
+  }
+  function dueInfo(r){
+    const arr=[];
+    const dv=daysDiff(r.vonDate), dl=daysDiff(r.laiDate);
+    if((dv!==null&&dv<=7)||(r.vonQH||0)>0) arr.push({date:r.vonDate||today(),days:dv??-1});
+    if((dl!==null&&dl<=7)||(r.laiQH||0)>0) arr.push({date:r.laiDate||today(),days:dl??-1});
+    arr.sort((a,b)=>a.days-b.days);
+    return arr[0] || {date:r.vonDate||r.laiDate,days:Math.min(dv??99999,dl??99999)};
+  }
+  function applyDue7Filters(){
+    buildSelect('due7CBTD','Tất cả CBTD',loans().map(x=>x.cbtd));
+    let rows=due7Base();
+    const q=norm($('due7Search')?.value||''), cbtd=$('due7CBTD')?.value||'', sort=$('due7Sort')?.value||'due_asc';
+    if(q) rows=rows.filter(r=>norm(`${r.maKH} ${r.name} ${r.contract} ${r.cbtd}`).includes(q));
+    if(cbtd) rows=rows.filter(r=>r.cbtd===cbtd);
+    if(sort==='total_desc') rows.sort((a,b)=>((b.vonAmount||b.vonQH||0)+(b.laiAmount||b.laiQH||0))-((a.vonAmount||a.vonQH||0)+(a.laiAmount||a.laiQH||0)));
+    else if(sort==='name_asc') rows.sort((a,b)=>(a.name||'').localeCompare(b.name||'','vi'));
+    else rows.sort((a,b)=>(dueInfo(a).days??99999)-(dueInfo(b).days??99999));
+    return rows;
+  }
+  function renderDue7(){
+    const rows=applyDue7Filters(), empty=$('due7Empty'), table=$('due7-table'), body=$('due7Body');
+    const all=due7Base(), over=all.filter(r=>dueInfo(r).days<0), principal=all.reduce((s,r)=>s+(r.vonAmount||r.vonQH||0),0), interest=all.reduce((s,r)=>s+(r.laiAmount||r.laiQH||0),0);
+    $('due7Metrics').innerHTML=`<div class="metric"><div class="metric-lbl">⏰ Khoản theo dõi</div><div class="metric-val amber">${all.length}</div><div class="metric-sub">Chưa thanh toán</div></div>
+      <div class="metric"><div class="metric-lbl">🔴 Quá hạn</div><div class="metric-val red">${over.length}</div><div class="metric-sub">Tự báo quá hạn</div></div>
+      <div class="metric"><div class="metric-lbl">💵 Gốc cần thu</div><div class="metric-val blue">${moneyShort(principal)}</div><div class="metric-sub">${money(principal)}</div></div>
+      <div class="metric"><div class="metric-lbl">💰 Lãi cần thu</div><div class="metric-val amber">${moneyShort(interest)}</div><div class="metric-sub">${money(interest)}</div></div>
+      <div class="metric"><div class="metric-lbl">👥 Khách hàng</div><div class="metric-val green">${new Set(all.map(r=>r.maKH||r.name)).size}</div><div class="metric-sub">Trong danh sách</div></div>`;
+    if(!rows.length){ empty.style.display='block'; table.style.display='none'; empty.textContent='Không có tiền vay quá hạn/đến hạn trong 7 ngày hoặc các khoản đã được tích thanh toán.'; $('due7Footer').textContent=''; return; }
+    empty.style.display='none'; table.style.display='block';
+    body.innerHTML=rows.map((r,i)=>{ const inf=dueInfo(r), [lbl,cls]=statusBadge(inf.days), total=(r.vonAmount||r.vonQH||0)+(r.laiAmount||r.laiQH||0); return `<tr class="${inf.days<0?'row-over':'row-soon'}"><td class="center">${i+1}</td>
+      <td class="center"><input class="paid-check" type="checkbox" onchange="setLoanPaidByKey('${jsq(loanKey(r))}',this.checked)"></td>
+      <td class="mono">${html(r.maKH||'—')}</td><td style="font-weight:700;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${attr(r.name)}">${html(r.name||'—')}</td><td class="mono">${html(r.contract||'—')}</td>
+      <td>${html(r.loanType||'—')}</td><td>${html(r.cbtd||'—')}</td><td>${fmtDate(inf.date)}</td><td class="center">${html(dueText(inf.days))}</td><td class="num">${money(r.outstanding)}</td>
+      <td class="num">${money(r.vonAmount||r.vonQH||0)}</td><td class="num">${money(r.laiAmount||r.laiQH||0)}</td><td class="num">${money(total)}</td><td><span class="badge ${cls}">${lbl}</span></td></tr>`; }).join('');
+    $('due7Footer').textContent=`Hiển thị ${rows.length}/${all.length} khoản vay chưa thanh toán.`;
+  }
+
+  function renderDeposit(){
+    const q=norm($('depositSearch')?.value||''), due=$('depositDue')?.value||'active', sort=$('depositSort')?.value||'maturity_asc';
+    let rows=deposits().slice();
+    if(q) rows=rows.filter(r=>norm(`${r.maKH} ${r.name} ${r.account} ${officerDeposit(r)}`).includes(q));
+    if(due==='active') rows=rows.filter(r=>!isDepositProcessed(r));
+    if(due==='need7') rows=rows.filter(r=>!isDepositProcessed(r) && daysDiff(r.maturityDate)!==null && daysDiff(r.maturityDate)<=7);
+    if(due==='over') rows=rows.filter(r=>!isDepositProcessed(r) && daysDiff(r.maturityDate)!==null && daysDiff(r.maturityDate)<0);
+    if(due==='processed') rows=rows.filter(r=>isDepositProcessed(r));
+    if(sort==='balance_desc') rows.sort((a,b)=>(b.balanceVnd||b.balanceNt||0)-(a.balanceVnd||a.balanceNt||0));
+    else if(sort==='name_asc') rows.sort((a,b)=>(a.name||'').localeCompare(b.name||'','vi'));
+    else rows.sort((a,b)=>(excelDate(a.maturityDate)?.getTime()||9999999999999)-(excelDate(b.maturityDate)?.getTime()||9999999999999));
+    const active=deposits().filter(r=>!isDepositProcessed(r)), total=active.reduce((s,r)=>s+(r.balanceVnd||r.balanceNt||0),0), due7=active.filter(r=>daysDiff(r.maturityDate)!==null&&daysDiff(r.maturityDate)<=7);
+    $('depositMetrics').innerHTML=`<div class="metric"><div class="metric-lbl">🏦 TK tiền gửi</div><div class="metric-val blue">${active.length}</div><div class="metric-sub">Chưa xử lý</div></div>
+      <div class="metric"><div class="metric-lbl">💰 Số dư TG</div><div class="metric-val green">${moneyShort(total)}</div><div class="metric-sub">${money(total)}</div></div>
+      <div class="metric"><div class="metric-lbl">⏰ ĐH/Quá hạn ≤7 ngày</div><div class="metric-val amber">${due7.length}</div><div class="metric-sub">Cần xử lý</div></div>
+      <div class="metric"><div class="metric-lbl">🔴 Quá hạn</div><div class="metric-val red">${active.filter(r=>daysDiff(r.maturityDate)<0).length}</div><div class="metric-sub">Chưa xử lý</div></div>
+      <div class="metric"><div class="metric-lbl">✅ Đã xử lý</div><div class="metric-val green">${deposits().length-active.length}</div><div class="metric-sub">Đã tích</div></div>`;
+    const empty=$('depositEmpty'), table=$('deposit-table'), body=$('depositBody');
+    if(!rows.length){ empty.style.display='block'; table.style.display='none'; empty.textContent='Không có dữ liệu tiền gửi theo bộ lọc hiện tại.'; $('depositFooter').textContent=''; return; }
+    empty.style.display='none'; table.style.display='block';
+    body.innerHTML=rows.map((r,i)=>{ const d=daysDiff(r.maturityDate), [lbl,cls]=statusBadge(d); return `<tr class="${d!==null&&d<0?'row-over':(d!==null&&d<=7?'row-soon':'')}"><td class="center">${i+1}</td>
+      <td class="center"><input class="paid-check" type="checkbox" ${isDepositProcessed(r)?'checked':''} onchange="setDepositProcessedByKey('${jsq(depositKey(r))}',this.checked)"></td>
+      <td class="mono">${html(r.maKH||'—')}</td><td style="font-weight:700;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${attr(r.name)}">${html(r.name||'—')}</td><td class="mono">${html(r.account||'—')}</td>
+      <td>${html(r.termName||'Không kỳ hạn')}</td><td>${html(officerDeposit(r)||r.product||'—')}</td><td>${fmtDate(r.depositDate)}</td><td>${fmtDate(r.maturityDate)}</td>
+      <td><span class="badge ${cls}">${lbl}</span></td><td class="num">${r.rate?r.rate.toLocaleString('vi-VN'):'—'}</td><td class="num">${money(r.balanceVnd||r.balanceNt||0)}</td><td class="num">${money(r.avgBalanceVnd||0)}</td></tr>`; }).join('');
+    $('depositFooter').textContent=`Hiển thị ${rows.length}/${deposits().length} tài khoản tiền gửi.`;
+  }
+
+  function renderCustomer(){
+    let rows=customers().slice();
+    const q=norm($('customerSearch')?.value||''), sort=$('customerSort')?.value||'name_asc';
+    if(q) rows=rows.filter(r=>norm(`${r.maKH} ${r.name} ${r.phone} ${r.address}`).includes(q));
+    if(sort==='name_desc') rows.sort((a,b)=>(b.name||'').localeCompare(a.name||'','vi'));
+    else if(sort==='ma_asc') rows.sort((a,b)=>(a.maKH||'').localeCompare(b.maKH||'','vi'));
+    else rows.sort((a,b)=>(a.name||'').localeCompare(b.name||'','vi'));
+    $('customerMetrics').innerHTML=`<div class="metric"><div class="metric-lbl">👥 Tổng KH</div><div class="metric-val blue">${customers().length}</div><div class="metric-sub">Sheet tổng quan KH</div></div>
+      <div class="metric"><div class="metric-lbl">☎ Có SĐT</div><div class="metric-val green">${customers().filter(x=>x.phone).length}</div><div class="metric-sub">Dùng gọi nhanh</div></div>
+      <div class="metric"><div class="metric-lbl">📍 Có địa chỉ</div><div class="metric-val amber">${customers().filter(x=>x.address).length}</div><div class="metric-sub">Theo file</div></div>`;
+    const empty=$('customerEmpty'), table=$('customerTable'), body=$('customerBody');
+    if(!rows.length){ empty.style.display='block'; table.style.display='none'; empty.textContent='Chưa có dữ liệu khách hàng hoặc không có kết quả theo bộ lọc.'; $('customerFooter').textContent=''; return; }
+    empty.style.display='none'; table.style.display='block';
+    body.innerHTML=rows.map((r,i)=>{ const idx=customers().indexOf(r); return `<tr><td class="center">${i+1}</td><td><input class="edit-input mono" value="${attr(r.maKH)}" onchange="updateCustomer(${idx},'maKH',this.value)"></td><td><input class="edit-input cust-name-input" value="${attr(r.name)}" onchange="updateCustomer(${idx},'name',this.value)"></td><td><input class="edit-input" value="${attr(r.phone)}" onchange="updateCustomer(${idx},'phone',this.value)"></td><td><input class="edit-input cust-address-input" value="${attr(r.address)}" onchange="updateCustomer(${idx},'address',this.value)"></td><td class="center"><button class="btn-mini" onclick="deleteCustomer(${idx})">Xóa</button></td></tr>`; }).join('');
+    $('customerFooter').textContent=`Hiển thị ${rows.length}/${customers().length} khách hàng.`;
+  }
+  function addCustomer(){ state.customers.unshift({maKH:'',name:'',phone:'',address:''}); saveData(false); renderCustomer(); }
+  function updateCustomer(i,field,val){ if(state.customers[i]){ state.customers[i][field]=val; saveData(false); } }
+  function deleteCustomer(i){ if(confirm('Xóa khách hàng này khỏi bảng tổng quan?')){ state.customers.splice(i,1); saveData(false); renderCustomer(); } }
+
+  function renderSummary(){
+    const map=new Map();
+    function ensure(k){ k=k||'Chưa phân công'; if(!map.has(k)) map.set(k,{loanCount:0,loanOut:0,loanDue:0,depCount:0,depBal:0,items:[]}); return map.get(k); }
+    loans().forEach(r=>{ const m=ensure(r.cbtd); m.loanCount++; m.loanOut+=r.outstanding||0; if(due7Base().includes(r)) m.loanDue++; m.items.push({type:'Vay',name:r.name,ref:r.contract,amount:r.outstanding,date:r.vonDate,status:statusBadge(daysDiff(r.vonDate))[0]}); });
+    deposits().forEach(r=>{ const m=ensure(officerDeposit(r)); m.depCount++; m.depBal+=r.balanceVnd||r.balanceNt||0; m.items.push({type:'Tiền gửi',name:r.name,ref:r.account,amount:r.balanceVnd||r.balanceNt||0,date:r.maturityDate,status:statusBadge(daysDiff(r.maturityDate))[0]}); });
+    const arr=[...map.entries()].sort((a,b)=>(b[1].loanOut+b[1].depBal)-(a[1].loanOut+a[1].depBal));
+    $('summaryGrid').innerHTML=arr.map(([name,x])=>`<div class="cbtd-card" onclick="showSummaryDetail('${jsq(name)}')"><div class="cbtd-name">👤 ${html(name)}</div><div class="cbtd-row"><span>HĐ vay</span><span>${x.loanCount}</span></div><div class="cbtd-row"><span>Dư nợ vay</span><span>${moneyShort(x.loanOut)}</span></div><div class="cbtd-row"><span>Vay cần theo dõi</span><span>${x.loanDue}</span></div><div class="cbtd-row"><span>TK tiền gửi</span><span>${x.depCount}</span></div><div class="cbtd-row"><span>Số dư TG</span><span>${moneyShort(x.depBal)}</span></div><div class="subtle" style="margin-top:.5rem;color:var(--blue);font-weight:700">Xem chi tiết →</div></div>`).join('') || '<div class="empty-state">Chưa có dữ liệu CBTD.</div>';
+    window.__summaryMap=map;
+  }
+  function showSummaryDetail(name){
+    const x=(window.__summaryMap||new Map()).get(name); if(!x) return;
+    $('summaryDetail').style.display='block';
+    $('summaryTitle').textContent='Chi tiết CBTD/phụ trách: '+name;
+    $('summarySub').textContent=`${x.loanCount} hợp đồng vay · ${x.depCount} tài khoản tiền gửi`;
+    $('summaryBody').innerHTML=x.items.sort((a,b)=>(excelDate(a.date)?.getTime()||9999999999999)-(excelDate(b.date)?.getTime()||9999999999999)).map((it,i)=>`<tr><td>${i+1}</td><td>${html(it.name||'—')}</td><td class="mono">${html(it.ref||'—')}</td><td>${html(it.type)}</td><td class="num">${money(it.amount||0)}</td><td>${fmtDate(it.date)}</td><td>${html(it.status)}</td></tr>`).join('');
+  }
+
+  function renderRenewal(){
+    let rows=renewals().slice();
+    const q=norm($('renewSearch')?.value||''), sort=$('renewSort')?.value||'date_asc';
+    if(q) rows=rows.filter(r=>norm(`${r.maKH} ${r.name} ${r.cbtd}`).includes(q));
+    if(sort==='limit_desc') rows.sort((a,b)=>(b.limit||0)-(a.limit||0));
+    else if(sort==='name_asc') rows.sort((a,b)=>(a.name||'').localeCompare(b.name||'','vi'));
+    else rows.sort((a,b)=>(excelDate(a.renewDate||a.expireDate)?.getTime()||9999999999999)-(excelDate(b.renewDate||b.expireDate)?.getTime()||9999999999999));
+    const empty=$('renewEmpty'), table=$('renewTable'), body=$('renewBody');
+    if(!rows.length){ empty.style.display='block'; table.style.display='none'; empty.textContent='Chưa có dữ liệu tái cấp hạn mức.'; $('renewFooter').textContent=''; return; }
+    empty.style.display='none'; table.style.display='block';
+    body.innerHTML=rows.map((r,i)=>{ const d=daysDiff(r.renewDate||r.expireDate); return `<tr class="${d!==null&&d<0?'row-over':(d!==null&&d<=30?'row-soon':'')}"><td>${i+1}</td><td class="mono">${html(r.maKH||'—')}</td><td>${html(r.name||'—')}</td><td>${html(r.cbtd||'—')}</td><td class="num">${money(r.limit||0)}</td><td>${fmtDate(r.grantDate)}</td><td>${fmtDate(r.renewDate)}</td><td>${fmtDate(r.expireDate)}</td><td>${d===null?'—':dueText(d)}</td><td>${html(r.status||'Theo dõi')}</td><td>${html(r.note||'')}</td></tr>`; }).join('');
+    $('renewFooter').textContent=`Hiển thị ${rows.length}/${renewals().length} hồ sơ hạn mức.`;
+  }
+
+  function renderMetrics(){
+    const loanDue=due7Base(), depDue=deposits().filter(r=>!isDepositProcessed(r)&&daysDiff(r.maturityDate)!==null&&daysDiff(r.maturityDate)<=7);
+    const loanOut=loans().reduce((s,r)=>s+(r.outstanding||0),0), depBal=deposits().filter(r=>!isDepositProcessed(r)).reduce((s,r)=>s+(r.balanceVnd||r.balanceNt||0),0);
+    $('metrics').innerHTML=`<div class="metric"><div class="metric-lbl">👥 Khách hàng</div><div class="metric-val blue">${customers().length}</div><div class="metric-sub">Tổng quan KH</div></div>
+      <div class="metric"><div class="metric-lbl">💳 Dư nợ vay</div><div class="metric-val amber">${moneyShort(loanOut)}</div><div class="metric-sub">${loans().length} HĐ</div></div>
+      <div class="metric"><div class="metric-lbl">🏦 Tiền gửi</div><div class="metric-val green">${moneyShort(depBal)}</div><div class="metric-sub">Chưa xử lý</div></div>
+      <div class="metric"><div class="metric-lbl">⏰ Việc 7 ngày</div><div class="metric-val red">${loanDue.length+depDue.length}</div><div class="metric-sub">Vay + gửi</div></div>
+      <div class="metric"><div class="metric-lbl">🔁 Hạn mức</div><div class="metric-val blue">${renewals().length}</div><div class="metric-sub">Hồ sơ</div></div>`;
+  }
+  function renderAllCurrent(){
+    renderMetrics();
+    const active=document.querySelector('.tab.active')?.dataset.tab || 'today';
+    if(active==='today') renderToday();
+    if(active==='list') renderList();
+    if(active==='due7') renderDue7();
+    if(active==='summary') renderSummary();
+    if(active==='deposit') renderDeposit();
+    if(active==='customer') renderCustomer();
+    if(active==='renewal') renderRenewal();
+  }
+  function switchTab(tab,el){
+    const target=TABS.includes(tab)?tab:'today';
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    if(el) el.classList.add('active'); else { const b=document.querySelector(`.tab[data-tab="${target}"]`); if(b)b.classList.add('active'); }
+    TABS.forEach(t=>{ const s=$('tab-'+t); if(s) s.style.display = t===target ? 'block':'none'; });
+    renderAllCurrent();
+  }
+  function showDashboard(tab='today'){
+    $('uploadHelp').style.display='none';
+    $('dashboard').style.display='block';
+    switchTab(tab);
+  }
+
+  function openUpload(){ $('fileIn').value=''; $('fileIn').click(); }
+  function handleFile(input){
+    const f=input.files && input.files[0]; if(!f) return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        if(typeof XLSX==='undefined') throw new Error('Chưa tải được thư viện đọc Excel. Khi chạy trên GitHub cần có Internet để tải SheetJS.');
+        const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+        const out=loadWorkbook(wb);
+        setMeta(f.name);
+        showDashboard('today');
+        const warn=out.errors.length?'\n\nSheet lỗi:\n- '+out.errors.join('\n- '):'';
+        alert(`Đã đọc file tổng hợp (${VERSION}).\n- Tổng quan KH: ${out.customers.length}\n- Tiền vay: ${out.loans.length}\n- Tiền gửi: ${out.deposits.length}\n- Hạn mức/tái cấp: ${out.renewals.length}\n\nNhận diện sheet:\n- ${out.sheetMap.join('\n- ')}${warn}`);
+      }catch(err){ console.error(err); alert('Lỗi khi đọc file Excel tổng hợp: '+(err.message||err)); }
+    };
+    reader.onerror=()=>alert('Không mở được file. Sếp thử lưu lại file .xlsx rồi upload lại.');
+    reader.readAsArrayBuffer(f);
+  }
+  function openSavedDashboard(){ if(loadData()) showDashboard('today'); else alert('Chưa có dữ liệu đã lưu trên trình duyệt này.'); }
+  function clearAllData(){
+    if(!confirm('Xóa toàn bộ dữ liệu dashboard, trạng thái đã thanh toán/đã xử lý và ghi chú đã lưu?')) return;
+    [DATA_KEY,PAID_KEY,DEPOSIT_KEY,TASK_KEY,META_KEY,'qldn_v22_dashboard_data','qldn_v22_loan_paid','qldn_v22_deposit_processed','qldn_v22_today_tasks'].forEach(k=>localStorage.removeItem(k));
+    dataSet({loans:[],customers:[],deposits:[],renewals:[]});
+    $('dashboard').style.display='none'; $('uploadHelp').style.display='block'; updateHeader();
+    alert('Đã xóa toàn bộ dữ liệu. Sếp upload file tổng hợp mới tại Tab 1.');
+  }
+
+  function csvDownload(filename, headers, rows){
+    const esc=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+    const csv='\ufeff'+[headers.map(esc).join(','),...rows.map(r=>r.map(esc).join(','))].join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+  function exportTodayTasks(){ const rows=applyTodayFilters(); csvDownload('viec_can_lam_hom_nay_v23.csv',['Loại','Mã KH','Khách hàng','SĐT','Số HĐ/TK','CBTD/Phụ trách','Ngày đến hạn','Còn/quá hạn','Gốc đến hạn','Lãi tạm tính','Tổng/Số dư','Trạng thái','Ghi chú'],rows.map(x=>[x.typeLabel,x.maKH,x.name,x.phone,x.ref,x.officer,fmtDate(x.dueDate),x.dueText,x.principal??'',x.interest??'',x.amount,x.status,x.note])); }
+  function exportPrincipalList(){ const rows=applyListFilters(); csvDownload('danh_sach_den_han_goc_kinh_doanh_v23.csv',['Mã KH','Khách hàng','Số HĐ','Loại vay','Dư nợ','Ngày trả vốn','Số tiền vốn','Ngày trả lãi','Số tiền lãi','CBTD'],rows.map(r=>[r.maKH,r.name,r.contract,r.loanType,r.outstanding,fmtDate(r.vonDate),r.vonAmount,fmtDate(r.laiDate),r.laiAmount,r.cbtd])); }
+  function exportOverdue(){ const rows=applyListFilters().filter(r=>daysDiff(r.vonDate)<0); csvDownload('danh_sach_qua_han_v23.csv',['Mã KH','Khách hàng','Số HĐ','Ngày trả vốn','Số tiền vốn','CBTD'],rows.map(r=>[r.maKH,r.name,r.contract,fmtDate(r.vonDate),r.vonAmount,r.cbtd])); }
+  function exportDue7(){ const rows=applyDue7Filters(); csvDownload('tien_vay_den_han_7_ngay_v23.csv',['Mã KH','Khách hàng','Số HĐ','Loại vay','CBTD','Ngày gốc','Gốc','Ngày lãi','Lãi','Trạng thái'],rows.map(r=>[r.maKH,r.name,r.contract,r.loanType,r.cbtd,fmtDate(r.vonDate),r.vonAmount,fmtDate(r.laiDate),r.laiAmount,dueText(dueInfo(r).days)])); }
+  function exportDeposit(){ const rows=deposits(); csvDownload('tien_gui_v23.csv',['Mã KH','Khách hàng','Tài khoản','Kỳ hạn','Ngày gửi','Ngày ĐH','Lãi suất','Số dư QĐ','Số dư BQ QĐ','DAO'],rows.map(r=>[r.maKH,r.name,r.account,r.termName,fmtDate(r.depositDate),fmtDate(r.maturityDate),r.rate,r.balanceVnd,r.avgBalanceVnd,officerDeposit(r)])); }
+  function exportCustomer(){ const rows=customers(); csvDownload('tong_quan_khach_hang_v23.csv',['Mã KH','Khách hàng','SĐT','Địa chỉ'],rows.map(r=>[r.maKH,r.name,r.phone,r.address])); }
+  function exportRenewal(){ const rows=renewals(); csvDownload('tai_cap_han_muc_v23.csv',['Mã KH','Khách hàng','CBTD','Hạn mức','Ngày cấp','Ngày tái cấp','Ngày hết hạn','Tình trạng','Ghi chú'],rows.map(r=>[r.maKH,r.name,r.cbtd,r.limit,fmtDate(r.grantDate),fmtDate(r.renewDate),fmtDate(r.expireDate),r.status,r.note])); }
+
+  function initDropzone(){
+    const dz=$('dropzone'); if(!dz) return;
+    ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault(); dz.classList.add('drag');}));
+    ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault(); dz.classList.remove('drag');}));
+    dz.addEventListener('drop',e=>{ const files=e.dataTransfer && e.dataTransfer.files; if(files && files[0]){ $('fileIn').files=files; handleFile($('fileIn')); }});
+  }
+
+  Object.assign(window,{openUpload,handleFile,openSavedDashboard,clearAllData,saveData,switchTab,renderToday,renderList,renderDue7,renderDeposit,renderCustomer,renderRenewal,renderSummary,setTodayPaid,updateTodayStatus,updateTodayNote,copyTodayMessage,setLoanPaidByKey,setDepositProcessedByKey,clearPaidLoans,clearProcessedDeposits,addCustomer,updateCustomer,deleteCustomer,showSummaryDetail,exportTodayTasks,exportPrincipalList,exportOverdue,exportDue7,exportDeposit,exportCustomer,exportRenewal});
+
+  updateHeader();
+  initDropzone();
+})();
+</script>
+</body>
+</html>
